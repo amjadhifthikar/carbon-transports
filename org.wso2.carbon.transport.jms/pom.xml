@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>org.wso2.carbon.transport.parent</artifactId>
+        <groupId>org.wso2.carbon.transport</groupId>
+        <version>3.0.4-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>org.wso2.carbon.transport.jms</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.wso2.eclipse.osgi</groupId>
+            <artifactId>org.eclipse.osgi</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.eclipse.osgi</groupId>
+            <artifactId>org.eclipse.osgi.services</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.wso2.carbon</groupId>
+            <artifactId>org.wso2.carbon.core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.wso2.carbon.messaging</groupId>
+            <artifactId>org.wso2.carbon.messaging</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.orbit.com.lmax</groupId>
+            <artifactId>disruptor</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.orbit.org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>commons-io.wso2</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons-io.wso2.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>javax.jms</groupId>
+            <artifactId>jms</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.andes.wso2</groupId>
+            <artifactId>andes-client</artifactId>
+        </dependency>
+    </dependencies>
+
+    <properties>
+        <bundle.activator></bundle.activator>
+        <private.package>
+        </private.package>
+        <export.package>
+
+        </export.package>
+        <import.package>
+            org.osgi.framework.*;version="${osgi.framework.import.version.range}",
+            org.osgi.util.tracker;version="${osgi.service.tracker.import.version.range}",
+            org.wso2.carbon.kernel.transports.*;version="${carbon.kernel.package.import.version.range}",
+            org.wso2.carbon.kernel.startupresolver.*;version="${carbon.kernel.package.import.version.range}",
+            org.slf4j.*;version="${slf4j.logging.package.import.version.range}",
+            org.xml.sax.*;version="${org.xml.sax.import.version.range}",
+            javax.xml.bind.*;version="${javax.xml.bind.import.version.range}",
+            javax.xml.transform.*;version="${javax.xml.transform.import.version.range}",
+            javax.xml.validation.*;version="${javax.xml.validation.import.version.range}",
+            javax.net.ssl.*;version="${javax.net.ssl.import.version.range}",javax.management,
+            org.yaml.snakeyaml.*;version="${org.snakeyaml.package.import.version.range}",
+            org.wso2.carbon.messaging.*;version="${carbon.messaging.package.import.version.range}",
+            org.apache.commons.pool.*;version="${commons.pool.package.import.version.range}",
+            com.lmax.disruptor.*;version="${disruptor.package.import.version.range}",
+        </import.package>
+        <carbon.component>
+        </carbon.component>
+    </properties>
+
+</project>

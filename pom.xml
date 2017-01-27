@@ -30,6 +30,7 @@
 
     <modules>
         <module>http/netty</module>
+        <module>org.wso2.carbon.transport.jms</module>
     </modules>
 
     <scm>
@@ -128,6 +129,16 @@
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
                 <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>javax.jms</groupId>
+                <artifactId>jms</artifactId>
+                <version>${javax.jms.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.andes.wso2</groupId>
+                <artifactId>andes-client</artifactId>
+                <version>${andes.wso2.version}</version>
             </dependency>
 
             <!-- Carbon Metrics Dependency -->
@@ -271,6 +282,9 @@
         <metrics.version>3.1.2</metrics.version>
 
         <testng.version>6.9.10</testng.version>
+
+        <javax.jms.version>1.1</javax.jms.version>
+        <andes.wso2.version>0.13.wso2v8</andes.wso2.version>
     </properties>
 
 </project>
