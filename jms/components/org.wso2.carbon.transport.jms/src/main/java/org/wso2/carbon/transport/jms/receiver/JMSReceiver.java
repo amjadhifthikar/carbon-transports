@@ -15,15 +15,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.wso2.carbon.transport.jms.sender;
+package org.wso2.carbon.transport.jms.receiver;
 
-import org.wso2.carbon.messaging.CarbonCallback;
 import org.wso2.carbon.messaging.CarbonMessage;
 import org.wso2.carbon.messaging.MessageProcessorException;
-import org.wso2.carbon.messaging.TransportSender;
 import org.wso2.carbon.transport.jms.factory.JMSConnectionFactory;
 import org.wso2.carbon.transport.jms.utils.JMSConstants;
-import org.wso2.carbon.transport.jms.utils.JMSUtils;
 import org.wso2.carbon.transport.jms.utils.StorableMessage;
 
 import java.util.Map;
@@ -33,22 +30,22 @@ import javax.jms.Connection;
 import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
-import javax.jms.MessageProducer;
+import javax.jms.MessageConsumer;
+import javax.jms.ObjectMessage;
 import javax.jms.Session;
-import javax.jms.TextMessage;
 
 /**
- * JMS sender implementation.
+ * JMS receiver to get one message.
  */
 
-public class JMSSender implements TransportSender {
+public class JMSReceiver {
 
-    @Override public boolean send(CarbonMessage carbonMessage, CarbonCallback carbonCallback)
+    public CarbonMessage receive(Map<String, Object> parameters)
             throws MessageProcessorException {
 
         try {
             Properties properties = new Properties();
-            Set<Map.Entry<String, Object>> set = carbonMessage.getProperties().entrySet();
+            Set<Map.Entry<String, Object>> set = parameters.entrySet();
             for (Map.Entry<String, Object> entry : set) {
                 String mappedParameter = JMSConstants.MAPPING_PARAMETERS.get(entry.getKey());
                 if (mappedParameter != null) {
@@ -58,9 +55,9 @@ public class JMSSender implements TransportSender {
             JMSConnectionFactory jmsConnectionFactory = new JMSConnectionFactory(properties);
 
             String conUsername =
-                    (String) carbonMessage.getProperty(JMSConstants.CONNECTION_USERNAME);
+                    (String) parameters.get(JMSConstants.CONNECTION_USERNAME);
             String conPassword =
-                    (String) carbonMessage.getProperty(JMSConstants.CONNECTION_PASSWORD);
+                    (String) parameters.get(JMSConstants.CONNECTION_PASSWORD);
 
             Connection connection = null;
             if (conUsername != null && conPassword != null) {
@@ -72,47 +69,38 @@ public class JMSSender implements TransportSender {
 
             Session session = jmsConnectionFactory.getSession(connection);
             Destination destination = jmsConnectionFactory.getDestination(session);
-            MessageProducer messageProducer =
-                    jmsConnectionFactory.createMessageProducer(session, destination);
+
+
+
+
+            MessageConsumer messageConsumer =
+                    jmsConnectionFactory.createMessageConsumer(session, destination);
 
             Message message = null;
-            String messageType = (String) carbonMessage.getProperty(JMSConstants.JMS_MESSAGE_TYPE);
 
-            //Create message.
-            if (messageType.equals(JMSConstants.TEXT_MESSAGE_TYPE)) {
-                message = session.createTextMessage();
-                TextMessage textMessage = (TextMessage) message;
-                if (carbonMessage.getProperty(JMSConstants.TEXT_DATA) != null) {
-                    textMessage.setText((String) carbonMessage.getProperty(JMSConstants.TEXT_DATA));
-                }
-            } else if (messageType.equals(JMSConstants.OBJECT_MESSAGE_TYPE) && carbonMessage
-                    instanceof StorableMessage) {
-                message = session.createObjectMessage((StorableMessage) carbonMessage);
-            }
-
-            //Set transport headers
-            Object transportHeaders = carbonMessage.getProperty(JMSConstants.TRANSPORT_HEADERS);
-            if (transportHeaders != null && transportHeaders instanceof Map) {
-                JMSUtils.setTransportHeaders(message, (Map<String, Object>) carbonMessage
-                        .getProperty(JMSConstants.TRANSPORT_HEADERS));
-            }
 
             //Send a message to the destination(queue/topic).
-            messageProducer.send(message);
+            message = messageConsumer.receive();
+
+            //Retreive the contents of the message.
+            if (!(message instanceof ObjectMessage)) {
+                return null;
+            }
+            ObjectMessage objMsg = (ObjectMessage) message;
+            if (!(objMsg.getObject() instanceof StorableMessage)) {
+                return null;
+            }
+            StorableMessage storableMessage = (StorableMessage) objMsg.getObject();
 
             //Close the session and connection resources.
             session.close();
             connection.close();
 
+            return storableMessage;
+
         } catch (JMSException e) {
-            throw new RuntimeException("Exception occurred while sending the message.");
+            throw new RuntimeException("Exception occurred while receiving the message.");
         }
-
-        return false;
     }
 
-
-    @Override public String getId() {
-        return "JMS";
-    }
 }

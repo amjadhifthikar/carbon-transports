@@ -79,7 +79,7 @@ public class JMSConnectionFactory implements ConnectionFactory, QueueConnectionF
         String connectionFactoryType = properties.getProperty(JMSConstants.CONNECTION_FACTORY_TYPE);
         if ("topic".equals(connectionFactoryType)) {
             this.destinationType = JMSConstants.JMSDestinationType.TOPIC;
-        } else {
+        } else if ("queue".equals(connectionFactoryType)) {
             this.destinationType = JMSConstants.JMSDestinationType.QUEUE;
         }
 
