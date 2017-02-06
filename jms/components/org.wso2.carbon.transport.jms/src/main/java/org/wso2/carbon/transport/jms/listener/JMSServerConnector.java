@@ -18,8 +18,12 @@
 
 package org.wso2.carbon.transport.jms.listener;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.messaging.CarbonMessageProcessor;
-import org.wso2.carbon.messaging.PollingServerConnector;
+import org.wso2.carbon.messaging.ListeningServerConnector;
+import org.wso2.carbon.transport.jms.exception.JMSServerConnectorException;
 import org.wso2.carbon.transport.jms.factory.JMSConnectionFactory;
 import org.wso2.carbon.transport.jms.utils.JMSConstants;
 
@@ -31,53 +35,115 @@ import javax.jms.Destination;
 import javax.jms.MessageConsumer;
 import javax.jms.Session;
 
-
 /**
  * This is a transport listener for JMS
  */
-public class JMSServerConnector extends PollingServerConnector {
+public class JMSServerConnector extends ListeningServerConnector {
+    private static final Log logger = LogFactory.getLog(JMSServerConnector.class.getName());
     private CarbonMessageProcessor carbonMessageProcessor;
     private JMSConnectionFactory jmsConnectionFactory = null;
     private Connection connection;
     private Session session;
     private Destination destination;
     private MessageConsumer messageConsumer;
+    private Properties properties;
+    private int retryInterval = 1;
+    private int maxRetryCount = 5;
 
     public JMSServerConnector(String id) {
         super(id);
     }
 
-    public JMSServerConnector() {
-        super("jms");
+    public void init(Map<String, String> map) {
+        properties = new Properties();
+        Set<Map.Entry<String, String>> set = map.entrySet();
+        for (Map.Entry<String, String> entry : set) {
+            String mappedParameter = JMSConstants.MAPPING_PARAMETERS.get(entry.getKey());
+            if (mappedParameter != null) {
+                properties.put(mappedParameter, entry.getValue());
+            }
+        }
+
+        String retryInterval = map.get(JMSConstants.RETRY_INTERVAL);
+        if (retryInterval != null) {
+            try {
+                this.retryInterval = Integer.parseInt(retryInterval);
+            } catch (NumberFormatException ex) {
+                logger.error("Provided value for retry interval is invalid, using the default retry interval value "
+                        + retryInterval);
+            }
+        }
+
+        String maxRetryCount = map.get(JMSConstants.MAX_RETRY_COUNT);
+        if (maxRetryCount != null) {
+            try {
+                this.maxRetryCount = Integer.parseInt(maxRetryCount);
+            } catch (NumberFormatException ex) {
+                logger.error("Provided value for max retry count is invalid, using the default max retry count "
+                        + maxRetryCount);
+            }
+        }
+
+    }
+
+
+    @Override
+    public boolean bind() {
+        try {
+            createDestinationListener();
+            return true;
+        } catch (Exception e) {
+            try {
+                if (jmsConnectionFactory == null) {
+                    throw new RuntimeException("Cannot create the jms connection factory. please check the connection"
+                            + " properties and re-deploy the jms service");
+                }
+                closeAll();
+                JMSConnectionRetryHandler jmsConnectionRetryHandler = new JMSConnectionRetryHandler(this,
+                        retryInterval, maxRetryCount);
+                jmsConnectionRetryHandler.run();
+            } catch (JMSServerConnectorException e1) {
+                throw new RuntimeException(e1.getMessage(), e1);
+            }
+        }
+        return false;
+    }
+
+    @SuppressFBWarnings({"REC_CATCH_EXCEPTION"})
+    void createDestinationListener() throws JMSServerConnectorException {
+        try {
+            jmsConnectionFactory = new JMSConnectionFactory(properties);
+            connection = jmsConnectionFactory.createConnection();
+            jmsConnectionFactory.start(connection);
+            session = jmsConnectionFactory.createSession(connection);
+            destination = jmsConnectionFactory.getDestination(session);
+            messageConsumer = jmsConnectionFactory.createMessageConsumer(session, destination);
+            messageConsumer.setMessageListener(
+                    new JMSMessageListener(carbonMessageProcessor, id, session.getAcknowledgeMode(), session));
+        } catch (Exception e) {
+            logger.error("Error while creating the connection from connection factory. " + e.getMessage());
+            throw new JMSServerConnectorException("Error while creating the connection from connection factory", e);
+        }
+
+    }
+
+    void closeAll() {
+        try {
+            jmsConnectionFactory.closeConnection(connection);
+            jmsConnectionFactory.closeSession(session);
+            jmsConnectionFactory.closeMessageConsumer(messageConsumer);
+        } catch (JMSServerConnectorException e) {
+            logger.error("Error while closing the connection, session and message consumer ", e);
+        }
     }
 
     @Override
-    public void poll(Map<String, String> map) {
-        try {
-            Properties properties = new Properties();
-            Set<Map.Entry<String, String>> set = map.entrySet();
-            for (Map.Entry<String, String> entry : set) {
-                String mappedParameter = JMSConstants.MAPPING_PARAMETERS.get(entry.getKey());
-                if (mappedParameter != null) {
-                    properties.put(mappedParameter, entry.getValue());
-                }
-            }
-            jmsConnectionFactory = new JMSConnectionFactory(properties);
-            connection = jmsConnectionFactory.getConnection();
-            if (connection != null) {
-                jmsConnectionFactory.start(connection);
-                session = jmsConnectionFactory.getSession(connection);
-                session.recover();
-                destination = jmsConnectionFactory.getDestination(session);
-                messageConsumer = jmsConnectionFactory.createMessageConsumer(session, destination);
-                messageConsumer.setMessageListener(
-                        new JMSMessageListener(carbonMessageProcessor, id, session.getAcknowledgeMode(), session));
-            } else {
-                throw new RuntimeException("Cannot connect to the JMS Server. Check the connection and try again");
-            }
-        } catch (Throwable e) {
-            throw new RuntimeException("Cannot connect to the JMS Server. Check the connection and other properties");
-        }
+    public boolean unbind() {
+        return false;
+    }
+
+    public JMSServerConnector() {
+        super("jms");
     }
 
     @Override
@@ -93,18 +159,30 @@ public class JMSServerConnector extends PollingServerConnector {
 
     @Override
     public void stop() {
-        jmsConnectionFactory.closeConnection(connection);
-        jmsConnectionFactory.closeSession(session);
-        jmsConnectionFactory.closeMessageConsumer(messageConsumer);
+        try {
+            jmsConnectionFactory.closeConnection(connection);
+            jmsConnectionFactory.closeSession(session);
+            jmsConnectionFactory.closeMessageConsumer(messageConsumer);
+        } catch (JMSServerConnectorException e) {
+            logger.error("Error while closing the connection, session and consumer ", e);
+        }
     }
 
     @Override
     protected void beginMaintenance() {
-        jmsConnectionFactory.stop(connection);
+        try {
+            jmsConnectionFactory.stop(connection);
+        } catch (JMSServerConnectorException e) {
+            logger.error("Error while trying to stop the connection to stop receiving the messages");
+        }
     }
 
     @Override
     protected void endMaintenance() {
-        jmsConnectionFactory.start(connection);
+        try {
+            jmsConnectionFactory.start(connection);
+        } catch (JMSServerConnectorException e) {
+            logger.error("Error while trying to start the connection to start receiving the messages");
+        }
     }
 }
