@@ -590,4 +590,20 @@ public class JMSConnectionFactory implements ConnectionFactory, QueueConnectionF
             throw new JMSServerConnectorException("JMS Exception while closing the subscriber. " + e.getMessage());
         }
     }
+
+    /**
+     * To close the message producer
+     *
+     * @param messageProducer Message producer that need to be closed
+     */
+    public void closeMessageProducer(MessageProducer messageProducer) throws JMSServerConnectorException {
+        try {
+            if (messageProducer != null) {
+                messageProducer.close();
+            }
+        } catch (JMSException e) {
+            logger.error("JMS Exception while closing the producer.");
+            throw new JMSServerConnectorException("JMS Exception while closing the producer. " + e.getMessage());
+        }
+    }
 }

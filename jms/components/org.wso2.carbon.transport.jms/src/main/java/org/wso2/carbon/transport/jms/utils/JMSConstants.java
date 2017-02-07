@@ -48,6 +48,7 @@ public class JMSConstants {
     public static final String JMS_MESSAGE_TYPE = "JMS_MESSAGE_TYPE";
     public static final String GENERIC_MESSAGE_TYPE = "Message";
     public static final String TEXT_MESSAGE_TYPE = "TextMessage";
+    public static final String BYTES_MESSAGE_TYPE = "BytesMessage";
 
     public static final String TOPIC_PREFIX = "topic.";
     public static final String QUEUE_PREFIX = "queue.";
@@ -85,6 +86,7 @@ public class JMSConstants {
     public static final String NAMING_FACTORY_INITIAL_PARAM_NAME = "FactoryInitial";
     public static final String PROVIDER_URL_PARAM_NAME = "ProviderUrl";
     public static final String SESSION_ACK_MODE_PARAM_NAME = "SessionAcknowledgement";
+    public static final String PERSISTENCE = "Persistence";
 
     public static final String CONNECTION_USERNAME = "ConnectionUsername";
     public static final String CONNECTION_PASSWORD = "ConnectionPassword";

@@ -26,10 +26,13 @@ import org.wso2.carbon.transport.jms.factory.JMSConnectionFactory;
 import org.wso2.carbon.transport.jms.utils.JMSConstants;
 import org.wso2.carbon.transport.jms.utils.JMSUtils;
 
+import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import javax.jms.BytesMessage;
 import javax.jms.Connection;
+import javax.jms.DeliveryMode;
 import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
@@ -57,20 +60,22 @@ public class JMSSender implements TransportSender {
             }
             JMSConnectionFactory jmsConnectionFactory = new JMSConnectionFactory(properties);
 
-            String conUsername = (String) carbonMessage.getProperty(JMSConstants.CONNECTION_USERNAME);
-            String conPassword = (String) carbonMessage.getProperty(JMSConstants.CONNECTION_PASSWORD);
+            String conUsername =
+                    (String) carbonMessage.getProperty(JMSConstants.CONNECTION_USERNAME);
+            String conPassword =
+                    (String) carbonMessage.getProperty(JMSConstants.CONNECTION_PASSWORD);
 
-            Connection connection = null;
+            Connection connection;
             if (conUsername != null && conPassword != null) {
                 connection = jmsConnectionFactory.createConnection(conUsername, conPassword);
-            }
-            if (connection == null) {
+            } else {
                 connection = jmsConnectionFactory.createConnection();
             }
 
             Session session = jmsConnectionFactory.createSession(connection);
             Destination destination = jmsConnectionFactory.getDestination(session);
-            MessageProducer messageProducer = jmsConnectionFactory.createMessageProducer(session, destination);
+            MessageProducer messageProducer =
+                    jmsConnectionFactory.createMessageProducer(session, destination);
 
             Message message = null;
             String messageType = (String) carbonMessage.getProperty(JMSConstants.JMS_MESSAGE_TYPE);
@@ -81,22 +86,33 @@ public class JMSSender implements TransportSender {
                 if (carbonMessage.getProperty(JMSConstants.TEXT_DATA) != null) {
                     textMessage.setText((String) carbonMessage.getProperty(JMSConstants.TEXT_DATA));
                 }
+            } else if (messageType.equals(JMSConstants.BYTES_MESSAGE_TYPE)) {
+                message = session.createBytesMessage();
+                BytesMessage bytesMessage = (BytesMessage) message;
+                if (carbonMessage.getProperty(JMSConstants.TEXT_DATA) != null) {
+                    bytesMessage.writeBytes(((String) carbonMessage.getProperty(JMSConstants.TEXT_DATA)).getBytes(
+                            Charset.defaultCharset()));
+                }
             }
 
             Object transportHeaders = carbonMessage.getProperty(JMSConstants.TRANSPORT_HEADERS);
             if (transportHeaders != null && transportHeaders instanceof Map) {
-                JMSUtils.setTransportHeaders(message,
-                        (Map<String, Object>) carbonMessage.getProperty(JMSConstants.TRANSPORT_HEADERS));
+                JMSUtils.setTransportHeaders(message, (Map<String, Object>) carbonMessage
+                        .getProperty(JMSConstants.TRANSPORT_HEADERS));
+            }
+            if (carbonMessage.getProperty(JMSConstants.PERSISTENCE).equals(false)) {
+                messageProducer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
             }
 
             messageProducer.send(message);
 
-            session.close();
-            connection.close();
+            jmsConnectionFactory.closeMessageProducer(messageProducer);
+            jmsConnectionFactory.closeSession(session);
+            jmsConnectionFactory.closeConnection(connection);
 
-        } catch (JMSException e) {
-            throw new RuntimeException("Exception occurred while sending the message.");
         } catch (JMSServerConnectorException e) {
+            throw new RuntimeException(e.getMessage(), e);
+        } catch (Exception e) {
             throw new RuntimeException("Exception occurred while sending the message", e);
         }
         return false;
